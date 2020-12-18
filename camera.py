@@ -33,14 +33,20 @@ class StableFaceCapture:
 	def __init__(self, video=0, threshold=0.025, camHeight=480, camWidth=640, rescale=8, noDetectionLimit=0, cvArgs={'scaleFactor':1.1, 'minNeighbors':5, 'minSize':(30, 30),'flags':cv2.CASCADE_SCALE_IMAGE}):
 
 		'''
-			- threshold: 		this will ensure that if the captured face is within
+			Constructor to initialize the object
+
+			Args:
+
+				video(int|str):			video filename or input device. Default = 0
+				threshold(float): 		this will ensure that if the captured face is within
 								5% of the previously captured position, then the Fx,Fy,Fw,Fh
 								will not be altered
-
-			- noDetectionLimit:	if face is not detected for these many frames inside the ROI,
+				camHeight(int):			Height (pixels) of the videocapture
+				camWidth(int):			Width (pixels) of the videocapture
+				rescale(float|int):		Factor to downsize the video
+				noDetectionLimit(int):		if face is not detected for these many frames inside the ROI,
 								we look for the face in the whole image
-
-			- cvArgs={...}: 	arguments to opencv's detectMultiScale function
+				cvArgs(dict): 			arguments to opencv's detectMultiScale function
 		'''
 
 		# Inherit parameters
@@ -74,17 +80,26 @@ class StableFaceCapture:
 
 
 	def getCamDims(self):
+		"""Returns the dimensions of the video capture in (WIDTH,HEIGHT) format"""
 		# For openCV like dimensions
 		return (int(self.camWidth), int(self.camHeight))
 
 
 	def getCamShape(self):
+		"""Returns the dimensions of the video capture in (HEIGHT,WIDTH) format"""
 		# For numpy like shape
 		return (int(self.camHeight), int(self.camWidth))
 
 
 	def withinThreshold(self, loc):
+		"""Checks whether the given location is within the threshold fraction of the ROI
 
+		Args:
+			loc(tuple): determines the location of the face (obtained from dlib's face detector)
+
+		Returns:
+			bool: True if the location is within the threshold of the ROI
+		"""
 		dF = np.abs(self.F - np.array(loc)) / self.camDiag
 		if np.all(dF <= self.threshold):
 			return True
@@ -93,6 +108,14 @@ class StableFaceCapture:
 
 
 	def getCapture(self, returnSuccess=False):
+		"""Reads an image from the videocapture and returns the numpy arrray
+
+		Args:
+			returnSuccess(bool): Whether to return the success flag along with the numpy array
+
+		Returns:
+			(bool|None,np.ndarray): Tuple containing success (if returnSuccess is True) and the read frame
+		"""
 
 		if returnSuccess==False:
 			ret_val, img = self.cam.read()
@@ -107,6 +130,14 @@ class StableFaceCapture:
 
 
 	def getFace(self, img=None):
+		"""Detects faces in a given image
+
+		Args:
+			img(np.nadarray): Numpy array of the image.
+
+		Returns:
+			np.ndarray: Location of the detected face.
+		"""
 
 		if img is None:
 			img = self.getCapture()
@@ -175,9 +206,22 @@ class StableFaceCapture:
 
 
 class BackgroundHandler:
-
+	"""Class to handle the background blurring / swapping"""
 
 	def __init__(self, camWidth, camHeight, rescale=8, mode='blur', alt_image_path='back.jpg', blur_kernel_size=9, mask_smooth_kernel_size=11, mask_smooth_iters=2, update_iters=10):
+		"""Initializes the object.
+
+		Args:
+			camWidth(int): Width of the video capture
+			camHeight(int): Height of the video capture
+			rescale(float|None): Factor by which the video must be downscaled. Default = 8
+			mode(str|None): Whether to 'blur' or 'remove' the background. Default = 'blur'
+			alt_image_path(str): Path to the background image. Default = 'back.jpg'
+			blur_kernel_size(str): Size of the kernel to perform gaussian blurring. Default = 9
+			mask_smooth_kernel_size(str): Size of the kernel to smooth the background/foreground mask. Default = 11
+			mask_smooth_iters(int): Number of iterations to smooth the mask. Default = 2
+			update_iters(int): Number of iterations in which the mask is updated. Default = 10
+		"""
 
 		self.camWidth = camWidth
 		self.camHeight = camHeight
@@ -211,6 +255,15 @@ class BackgroundHandler:
 
 
 	def get_mask(self, img, face_location):
+		"""Returns the mask corresponding to a single person in a given image.
+
+		Args:
+			img(np.ndarray): Input image
+			face_location(tuple): Location of the face detected by face detector
+
+		Returns:
+			np.ndarray: The mask for foreground
+		"""
 
 		self.update_counter += 1
 
@@ -233,11 +286,20 @@ class BackgroundHandler:
 				self.mask = cv2.filter2D(self.mask,-1,self.mask_smooth_kernel)
 
 			self.mask = self.mask[:, :, np.newaxis]
-		
+
 		return self.mask
 
 
 	def apply_background(self, img, mask):
+		"""Applies a background to the image and returns a new image.
+
+		Args:
+			img(np.ndarray): Original image
+			mask(np.ndarray): Mask to apply background
+
+		Returns:
+			np.ndarray: The image with background applied
+		"""
 
 		if(self.mode==None):
 			return img
